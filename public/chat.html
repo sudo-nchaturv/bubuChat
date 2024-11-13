@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Bubu Chat - Chat</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    #chatBox { width: 80%; margin: auto; padding: 10px; border: 1px solid #ddd; height: 300px; overflow-y: scroll; }
+    #messageInput { width: 70%; padding: 10px; }
+    .button { padding: 10px 20px; }
+  </style>
+</head>
+<body>
+  <h1>Bubu Chat Room</h1>
+  <div id="chatBox"></div>
+  <input type="text" id="messageInput" maxlength="200" placeholder="Type your message...">
+  <button id="sendButton" class="button">Send</button>
+  <p id="limitMessage" style="color: red; display: none;"></p>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const role = urlParams.get('role');
+    const otherRole = role === 'Bubu' ? 'Dudu' : 'Bubu';
+    const chatCode = window.location.pathname.split('/').pop();
+
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+    const limitMessage = document.getElementById('limitMessage');
+
+    // Load messages from the server and display them in the chat box
+    async function loadMessages() {
+      const response = await fetch(`/chat/${chatCode}/messages`);
+      if (response.ok) {
+        const data = await response.json();
+        const chatBox = document.getElementById('chatBox');
+        chatBox.innerHTML = data.messages.map(msg => `<p><strong>${msg.user}:</strong> ${msg.message}</p>`).join('');
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    }
+
+    // Send message to the server
+    async function sendMessage() {
+      const message = messageInput.value;
+      if (message.trim() !== '') {
+        const response = await fetch(`/chat/${chatCode}/send-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: otherRole, message })
+        });
+
+        if (response.status === 403) {
+          // Message limit reached
+          disableChat();
+        } else {
+          messageInput.value = '';
+          loadMessages();  // Update the chat box after sending a message
+        }
+      }
+    }
+
+    // Disable input and show limit message
+    function disableChat() {
+      messageInput.disabled = true;
+      sendButton.disabled = true;
+      limitMessage.style.display = 'block';
+      limitMessage.textContent = `Enough for the day, ${otherRole} can't take it anymore!`;
+    }
+
+    // Check for Enter key press to send message
+    messageInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Send button click event
+    sendButton.addEventListener('click', sendMessage);
+
+    // Load messages initially and every 2 seconds
+    loadMessages();
+    setInterval(loadMessages, 2000);  // Periodically load new messages to keep the chat updated
+  </script>
+</body>
+</html>

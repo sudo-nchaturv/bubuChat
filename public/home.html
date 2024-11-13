@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Bubu Chat - Home</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    .button { padding: 10px 20px; margin: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Welcome to Bubu Chat!</h1>
+
+  <button id="newChatButton" class="button">Make a New Chat</button>
+  <div id="newChatSection" style="display:none;">
+    <p>Chat Code: <span id="chatCode"></span></p>
+    <button onclick="startChat('Bubu')" class="button" style="background-color: #f5f5f5;">Chat with Bubu</button>
+    <button onclick="startChat('Dudu')" class="button" style="background-color: #d2b48c;">Chat with Dudu</button>
+  </div>
+
+  <h2>Or Join an Existing Chat</h2>
+  <input type="text" id="joinCodeInput" placeholder="Enter chat code" maxlength="6">
+  <button onclick="joinChat()" class="button">Join Chat</button>
+  <script>
+    async function createNewChat() {
+      const response = await fetch('/new-chat', { method: 'POST' });
+      const { code } = await response.json();
+      document.getElementById('newChatSection').style.display = 'block';
+      document.getElementById('chatCode').textContent = code;
+    }
+
+    function startChat(role) {
+      const code = document.getElementById('chatCode').textContent;
+      window.location.href = `/chat/${code}?role=${role}`;
+    }
+
+    function joinChat() {
+      const code = document.getElementById('joinCodeInput').value;
+      if (code.length === 6) {
+        window.location.href = `/chat/${code}`;
+      } else {
+        alert('Please enter a valid 6-character code.');
+      }
+    }
+
+    document.getElementById('newChatButton').onclick = createNewChat;
+  </script>
+</body>
+</html>
