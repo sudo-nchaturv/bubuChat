@@ -16,6 +16,18 @@
         "dest": "/api/index.js"
       },
       {
+        "src": "/",
+        "dest": "/public/home.html"
+      },
+      {
+        "src": "/home",
+        "dest": "/public/home.html"
+      },
+      {
+        "src": "/chat/(.*)",
+        "dest": "/api/index.js"
+      },
+      {
         "src": "/(.*)",
         "dest": "/public/$1"
       }

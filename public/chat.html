@@ -48,7 +48,7 @@
 
     // Load messages from the server and display them in the chat box
     async function loadMessages() {
-      const response = await fetch(`/chat/${chatCode}/messages`);
+      const response = await fetch(`/api/chat/${chatCode}/messages`);
       if (response.ok) {
         const data = await response.json();
         const chatBox = document.getElementById('chatBox');
@@ -63,7 +63,7 @@
     async function sendMessage() {
       const message = messageInput.value;
       if (message.trim() !== '') {
-        const response = await fetch(`/chat/${chatCode}/send-message`, {
+        const response = await fetch(`/api/chat/${chatCode}/send-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user: role, message })

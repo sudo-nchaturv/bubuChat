@@ -29,7 +29,7 @@
   <button onclick="joinChat()" class="button">Join Chat</button>
   <script>
     async function createNewChat() {
-      const response = await fetch('/new-chat', { method: 'POST' });
+      const response = await fetch('/api/new-chat', { method: 'POST' });
       const { code } = await response.json();
       document.getElementById('newChatSection').style.display = 'block';
       document.getElementById('chatCode').textContent = code;
@@ -43,8 +43,7 @@
     async function joinChat() {
       const code = document.getElementById('joinCodeInput').value;
       if (code.length === 6) {
-        // First verify if chat exists and get the creator's role
-        const response = await fetch(`/chat/${code}/info`);
+        const response = await fetch(`/api/chat/${code}/info`);
         if (response.ok) {
           const { creatorRole } = await response.json();
           const joinerRole = creatorRole === 'Bubu' ? 'Dudu' : 'Bubu';
