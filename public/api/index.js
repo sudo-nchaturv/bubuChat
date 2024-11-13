@@ -4,9 +4,10 @@ const path = require('path');
 
 const app = express();
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, '../public')));
 
-let chats = {};
+let chats = {};  // Note: This will reset on each server restart on Vercel
+
 
 // Utility function to generate a unique 6-character code
 function generateCode() {
@@ -21,18 +22,37 @@ app.get('/home', (req, res) => {
 // Create a new chat
 app.post('/new-chat', (req, res) => {
   const code = generateCode();
-  chats[code] = { messages: [], createdAt: Date.now() };
+  chats[code] = { 
+    messages: [], 
+    createdAt: Date.now(),
+    creatorRole: null  // We'll set this when the creator starts the chat
+  };
   res.json({ code });
 });
 
 // Serve the chat page if it exists
 app.get('/chat/:code', (req, res) => {
   const code = req.params.code;
-  if (chats[code]) {
-    res.sendFile(path.join(__dirname, 'public', 'chat.html'));
-  } else {
+  const role = req.query.role;
+  
+  if (!chats[code]) {
     res.status(404).send('Chat not found');
+    return;
   }
+  
+  if (!role || !['Bubu', 'Dudu'].includes(role)) {
+    res.redirect('/home');
+    return;
+  }
+  
+  if (!chats[code].creatorRole) {
+    chats[code].creatorRole = role;
+  } else if (chats[code].creatorRole === role) {
+    res.redirect('/home');
+    return;
+  }
+  
+  res.sendFile(path.join(__dirname, 'public', 'chat.html'));
 });
 
 // Return messages for a chat
@@ -75,7 +95,16 @@ setInterval(() => {
   }
 }, 60 * 60 * 1000);  // Run every hour
 
-// Start server
-app.listen(3000, () => {
-  console.log('Bubu Chat server running at http://localhost:3000/home');
+// Add this new endpoint
+app.get('/chat/:code/info', (req, res) => {
+  const code = req.params.code;
+  const chat = chats[code];
+  
+  if (chat && chat.creatorRole) {
+    res.json({ creatorRole: chat.creatorRole });
+  } else {
+    res.status(404).json({ error: 'Chat not found or not started' });
+  }
 });
+
+module.exports = app;

@@ -1,0 +1,82 @@
+:root {
+    --primary-color: #ff6b6b;
+    --secondary-color: #f7d794;
+    --background-color: #fff5f5;
+    --text-color: #2d3436;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  body {
+    font-family: 'Quicksand', Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    margin: 0;
+    padding: 20px;
+  }
+  
+  h1, h2 {
+    color: var(--primary-color);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    padding: 12px 24px;
+    margin: 10px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: var(--shadow);
+  }
+  
+  .button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+  }
+  
+  .button.secondary {
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+  }
+  
+  input[type="text"] {
+    padding: 12px 20px;
+    border: 2px solid var(--secondary-color);
+    border-radius: 25px;
+    font-size: 16px;
+    width: 250px;
+    transition: border-color 0.3s;
+    outline: none;
+  }
+  
+  input[type="text"]:focus {
+    border-color: var(--primary-color);
+  }
+  
+  #chatBox {
+    background-color: white;
+    border-radius: 15px;
+    padding: 20px;
+    margin: 20px auto;
+    box-shadow: var(--shadow);
+    height: 400px;
+  }
+  
+  #chatBox p {
+    background-color: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 15px;
+    margin: 10px 0;
+  }
+  
+  #chatBox p strong {
+    color: var(--primary-color);
+  }
+  
+  #limitMessage {
+    color: var(--primary-color);
+    font-style: italic;
+  }

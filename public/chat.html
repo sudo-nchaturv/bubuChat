@@ -2,11 +2,25 @@
 <html lang="en">
 <head>
   <title>Bubu Chat - Chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
   <style>
-    body { font-family: Arial, sans-serif; }
-    #chatBox { width: 80%; margin: auto; padding: 10px; border: 1px solid #ddd; height: 300px; overflow-y: scroll; }
-    #messageInput { width: 70%; padding: 10px; }
-    .button { padding: 10px 20px; }
+    #chatBox {
+      height: 400px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+
+    .Bubu {
+      color: #FF69B4; /* Pink */
+    }
+
+    .Dudu {
+      color: #1E90FF; /* Blue */
+    }
   </style>
 </head>
 <body>
@@ -19,6 +33,12 @@
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role');
+    
+    // Redirect if no role or invalid role
+    if (!role || !['Bubu', 'Dudu'].includes(role)) {
+      window.location.href = '/home';
+    }
+    
     const otherRole = role === 'Bubu' ? 'Dudu' : 'Bubu';
     const chatCode = window.location.pathname.split('/').pop();
 
@@ -32,7 +52,9 @@
       if (response.ok) {
         const data = await response.json();
         const chatBox = document.getElementById('chatBox');
-        chatBox.innerHTML = data.messages.map(msg => `<p><strong>${msg.user}:</strong> ${msg.message}</p>`).join('');
+        chatBox.innerHTML = data.messages.map(msg => 
+          `<p><strong class="${msg.user}">${msg.user}:</strong> ${msg.message}</p>`
+        ).join('');
         chatBox.scrollTop = chatBox.scrollHeight;
       }
     }
@@ -44,7 +66,7 @@
         const response = await fetch(`/chat/${chatCode}/send-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user: otherRole, message })
+          body: JSON.stringify({ user: role, message })
         });
 
         if (response.status === 403) {
