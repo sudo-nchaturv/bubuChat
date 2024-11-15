@@ -41,13 +41,9 @@
         const response = await fetch('/api/new-chat', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({})
+            'Content-Type': 'application/json'
+          }
         });
-        
-        console.log('Response status:', response.status);
         
         if (!response.ok) {
           const errorData = await response.json();
@@ -55,16 +51,12 @@
         }
         
         const data = await response.json();
-        console.log('Received data:', data);
+        console.log('Chat created:', data);
         
-        if (data.code) {
-          document.getElementById('newChatSection').style.display = 'block';
-          document.getElementById('chatCode').textContent = data.code;
-        } else {
-          throw new Error('No chat code received');
-        }
+        document.getElementById('newChatSection').style.display = 'block';
+        document.getElementById('chatCode').textContent = data.code;
       } catch (error) {
-        console.error('Error creating new chat:', error);
+        console.error('Error creating chat:', error);
         alert('Failed to create new chat. Please try again.');
       }
     }
@@ -96,7 +88,7 @@
     }
 
     // Add event listeners
-    document.getElementById('newChatButton').onclick = createNewChat;
+    document.getElementById('newChatButton').addEventListener('click', createNewChat);
     
     // Add enter key support for join input
     document.getElementById('joinCodeInput').addEventListener('keypress', function(e) {

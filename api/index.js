@@ -30,34 +30,41 @@ function generateCode() {
 app.post('/api/new-chat', async (req, res) => {
   try {
     console.log('Creating new chat...'); // Debug log
-    const code = generateCode();
     
-    console.log('Generated code:', code); // Debug log
-    console.log('Supabase URL:', supabaseUrl); // Debug log (will be hidden in logs)
-    console.log('Supabase key exists:', !!supabaseKey); // Debug log (safe way to check key)
+    // Check if Supabase is properly initialized
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
 
+    // Generate a unique code
+    const code = generateCode();
+    console.log('Generated code:', code);
+
+    // Create the chat record
     const { data, error } = await supabase
       .from('chats')
-      .insert([{ 
-        code,
+      .insert({
+        code: code,
+        creator_role: null,
         created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString() // 48 hours from now
-      }])
+        expires_at: new Date(Date.now() + (48 * 60 * 60 * 1000)).toISOString()
+      })
       .select()
       .single();
 
     if (error) {
-      console.error('Supabase error:', error); // Debug log
-      throw error;
+      console.error('Supabase error:', error);
+      throw new Error(error.message);
     }
 
-    console.log('Chat created successfully:', code); // Debug log
-    res.json({ code });
+    console.log('Chat created successfully:', data);
+    res.status(200).json({ code: code });
   } catch (error) {
-    console.error('Error creating chat:', error); // Debug log
-    res.status(500).json({ 
+    console.error('Error in /api/new-chat:', error);
+    res.status(500).json({
       error: 'Failed to create chat',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }); 
