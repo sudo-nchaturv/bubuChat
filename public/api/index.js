@@ -1,10 +1,15 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
+const cors = require('cors');
 
 const app = express();
+
+// Middleware
+app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
+
 
 let chats = {};
 
@@ -13,14 +18,16 @@ app.get('/', (req, res) => {
   res.redirect('/home.html');
 });
 
-// Update all your routes to include /api prefix
+// API Routes
 app.post('/api/new-chat', (req, res) => {
+  console.log('New chat request received'); // Debug log
   const code = generateCode();
   chats[code] = { 
     messages: [], 
     createdAt: Date.now(),
     creatorRole: null
   };
+  console.log('Created chat with code:', code); // Debug log
   res.json({ code });
 });
 
@@ -87,11 +94,30 @@ app.get('/chat/:code', (req, res) => {
   
   res.sendFile(path.join(__dirname, '../public/chat.html'));
 });
+  
+  // Add this near your other routes
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
-// Keep your utility functions
+  res.sendFile(path.join(__dirname, '../public/chat.html'));
+});
+
+// Utility function to generate a unique 6-character code
 function generateCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
+});
+
+// Handle 404
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found' });
+});
 
 // Export the express app
 module.exports = app;

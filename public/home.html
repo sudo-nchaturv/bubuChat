@@ -29,10 +29,28 @@
   <button onclick="joinChat()" class="button">Join Chat</button>
   <script>
     async function createNewChat() {
-      const response = await fetch('/api/new-chat', { method: 'POST' });
-      const { code } = await response.json();
-      document.getElementById('newChatSection').style.display = 'block';
-      document.getElementById('chatCode').textContent = code;
+      try {
+        console.log('Attempting to create new chat...');
+        const response = await fetch('/api/new-chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Received data:', data);
+        document.getElementById('newChatSection').style.display = 'block';
+        document.getElementById('chatCode').textContent = data.code;
+      } catch (error) {
+        console.error('Error creating new chat:', error);
+        alert('Failed to create new chat. Please try again.');
+      }
     }
 
     function startChat(role) {
