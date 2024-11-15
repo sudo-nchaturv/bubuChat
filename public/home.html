@@ -41,7 +41,8 @@
         const response = await fetch('/api/new-chat', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
           },
           body: JSON.stringify({})
         });
@@ -49,13 +50,19 @@
         console.log('Response status:', response.status);
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
         console.log('Received data:', data);
-        document.getElementById('newChatSection').style.display = 'block';
-        document.getElementById('chatCode').textContent = data.code;
+        
+        if (data.code) {
+          document.getElementById('newChatSection').style.display = 'block';
+          document.getElementById('chatCode').textContent = data.code;
+        } else {
+          throw new Error('No chat code received');
+        }
       } catch (error) {
         console.error('Error creating new chat:', error);
         alert('Failed to create new chat. Please try again.');
