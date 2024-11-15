@@ -1,10 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Bubu Chat - Chat</title>
+  <title>Bubu Chat</title>
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <style>
+    body {
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
     #chatBox {
       height: 400px;
       overflow-y: auto;
@@ -12,6 +19,15 @@
       padding: 15px;
       margin: 20px 0;
       border-radius: 8px;
+      text-align: left;
+    }
+
+    .messageInput {
+      width: 80%;
+      padding: 10px;
+      margin: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
     }
 
     .Bubu {
@@ -21,86 +37,123 @@
     .Dudu {
       color: #1E90FF; /* Blue */
     }
+
+    #messageForm {
+      margin-top: 20px;
+    }
+
+    .button {
+      margin: 10px;
+    }
+
+    .disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
-  <h1>Bubu Chat Room</h1>
+  <h1>Chat Room</h1>
+  <p>You are: <span id="roleDisplay"></span></p>
   <div id="chatBox"></div>
-  <input type="text" id="messageInput" maxlength="200" placeholder="Type your message...">
-  <button id="sendButton" class="button">Send</button>
-  <p id="limitMessage" style="color: red; display: none;"></p>
+  <form id="messageForm" onsubmit="sendMessage(event)">
+    <input type="text" id="messageInput" class="messageInput" placeholder="Type your message..." maxlength="200">
+    <button type="submit" class="button">Send</button>
+  </form>
+  <p id="messageLimit">Messages remaining: <span id="remainingMessages">5</span></p>
 
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role');
-    
+    const chatCode = window.location.pathname.split('/').pop();
+    const messageInput = document.getElementById('messageInput');
+    let remainingMessages = 5;
+
     // Redirect if no role or invalid role
     if (!role || !['Bubu', 'Dudu'].includes(role)) {
-      window.location.href = '/home.html';
+      window.location.href = '/';
     }
-    
-    const otherRole = role === 'Bubu' ? 'Dudu' : 'Bubu';
-    const chatCode = window.location.pathname.split('/').pop();
 
-    const messageInput = document.getElementById('messageInput');
-    const sendButton = document.getElementById('sendButton');
-    const limitMessage = document.getElementById('limitMessage');
+    // Display role
+    document.getElementById('roleDisplay').textContent = role;
+    document.getElementById('roleDisplay').className = role;
 
-    // Load messages from the server and display them in the chat box
     async function loadMessages() {
-      const response = await fetch(`/api/chat/${chatCode}/messages`);
-      if (response.ok) {
+      try {
+        const response = await fetch(`/api/chat/${chatCode}/messages`);
+        if (!response.ok) {
+          throw new Error('Failed to load messages');
+        }
         const data = await response.json();
         const chatBox = document.getElementById('chatBox');
         chatBox.innerHTML = data.messages.map(msg => 
           `<p><strong class="${msg.user}">${msg.user}:</strong> ${msg.message}</p>`
         ).join('');
         chatBox.scrollTop = chatBox.scrollHeight;
+
+        // Update remaining messages count
+        const myMessages = data.messages.filter(msg => msg.user === role);
+        remainingMessages = Math.max(0, 5 - myMessages.length);
+        document.getElementById('remainingMessages').textContent = remainingMessages;
+
+        if (remainingMessages === 0) {
+          disableChat();
+        }
+      } catch (error) {
+        console.error('Error loading messages:', error);
       }
     }
 
-    // Send message to the server
-    async function sendMessage() {
-      const message = messageInput.value;
-      if (message.trim() !== '') {
-        const response = await fetch(`/api/chat/${chatCode}/send-message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user: role, message })
-        });
+    async function sendMessage(event) {
+      event.preventDefault();
+      const message = messageInput.value.trim();
+      
+      if (message && remainingMessages > 0) {
+        try {
+          const response = await fetch(`/api/chat/${chatCode}/send-message`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              user: role,
+              message: message
+            })
+          });
 
-        if (response.status === 403) {
-          // Message limit reached
-          disableChat();
-        } else {
+          if (!response.ok) {
+            throw new Error('Failed to send message');
+          }
+
           messageInput.value = '';
-          loadMessages();  // Update the chat box after sending a message
+          await loadMessages();
+        } catch (error) {
+          console.error('Error sending message:', error);
+          alert('Failed to send message. Please try again.');
         }
       }
     }
 
-    // Disable input and show limit message
     function disableChat() {
       messageInput.disabled = true;
-      sendButton.disabled = true;
-      limitMessage.style.display = 'block';
-      limitMessage.textContent = `Enough for the day, ${otherRole} can't take it anymore!`;
+      messageInput.placeholder = "You've reached your message limit";
+      document.querySelector('button[type="submit"]').disabled = true;
+      document.querySelector('button[type="submit"]').classList.add('disabled');
     }
 
-    // Check for Enter key press to send message
-    messageInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        sendMessage();
+    // Initial load of messages
+    loadMessages();
+
+    // Poll for new messages every 2 seconds
+    setInterval(loadMessages, 2000);
+
+    // Add enter key support for message input
+    messageInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(e);
       }
     });
-
-    // Send button click event
-    sendButton.addEventListener('click', sendMessage);
-
-    // Load messages initially and every 2 seconds
-    loadMessages();
-    setInterval(loadMessages, 2000);  // Periodically load new messages to keep the chat updated
   </script>
 </body>
 </html>

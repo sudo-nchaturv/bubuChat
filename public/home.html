@@ -12,6 +12,12 @@
     .button, input, #newChatSection, h1, h2 {
       margin: 10px auto;
     }
+
+    #chatCode {
+      font-weight: bold;
+      font-size: 1.2em;
+      color: var(--primary-color);
+    }
   </style>
 </head>
 <body>
@@ -20,13 +26,14 @@
   <button id="newChatButton" class="button">Make a New Chat</button>
   <div id="newChatSection" style="display:none;">
     <p>Chat Code: <span id="chatCode"></span></p>
-    <button onclick="startChat('Dudu')" class="button secondary">Chat with Bubu</button>
     <button onclick="startChat('Bubu')" class="button secondary">Chat with Dudu</button>
+    <button onclick="startChat('Dudu')" class="button secondary">Chat with Bubu</button>
   </div>
 
   <h2>Or Join an Existing Chat</h2>
   <input type="text" id="joinCodeInput" placeholder="Enter chat code" maxlength="6">
   <button onclick="joinChat()" class="button">Join Chat</button>
+
   <script>
     async function createNewChat() {
       try {
@@ -35,8 +42,10 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify({})
         });
+        
         console.log('Response status:', response.status);
         
         if (!response.ok) {
@@ -59,22 +68,35 @@
     }
 
     async function joinChat() {
-      const code = document.getElementById('joinCodeInput').value;
+      const code = document.getElementById('joinCodeInput').value.toUpperCase();
       if (code.length === 6) {
-        const response = await fetch(`/api/chat/${code}/info`);
-        if (response.ok) {
-          const { creatorRole } = await response.json();
-          const joinerRole = creatorRole === 'Bubu' ? 'Dudu' : 'Bubu';
-          window.location.href = `/chat/${code}?role=${joinerRole}`;
-        } else {
-          alert('Chat not found or already full.');
+        try {
+          const response = await fetch(`/api/chat/${code}/info`);
+          if (response.ok) {
+            const { creatorRole } = await response.json();
+            const joinerRole = creatorRole === 'Bubu' ? 'Dudu' : 'Bubu';
+            window.location.href = `/chat/${code}?role=${joinerRole}`;
+          } else {
+            alert('Chat not found or already full.');
+          }
+        } catch (error) {
+          console.error('Error joining chat:', error);
+          alert('Failed to join chat. Please try again.');
         }
       } else {
         alert('Please enter a valid 6-character code.');
       }
     }
 
+    // Add event listeners
     document.getElementById('newChatButton').onclick = createNewChat;
+    
+    // Add enter key support for join input
+    document.getElementById('joinCodeInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        joinChat();
+      }
+    });
   </script>
 </body>
 </html>
