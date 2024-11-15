@@ -64,7 +64,19 @@
     function startChat(role) {
       const code = document.getElementById('chatCode').textContent;
       const actualRole = role === 'Dudu' ? 'Bubu' : 'Dudu';
-      window.location.href = `/chat/${code}?role=${actualRole}`;
+      
+      fetch(`/api/chat/${code}/set-role`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ role: actualRole })
+      }).then(() => {
+        window.location.href = `/chat/${code}?role=${actualRole}`;
+      }).catch(error => {
+        console.error('Error setting role:', error);
+        window.location.href = `/chat/${code}?role=${actualRole}`;
+      });
     }
 
     async function joinChat() {
@@ -74,10 +86,14 @@
           const response = await fetch(`/api/chat/${code}/info`);
           if (response.ok) {
             const { creatorRole } = await response.json();
+            if (!creatorRole) {
+              alert('Invalid chat or creator role not set.');
+              return;
+            }
             const joinerRole = creatorRole === 'Bubu' ? 'Dudu' : 'Bubu';
             window.location.href = `/chat/${code}?role=${joinerRole}`;
           } else {
-            alert('Chat not found or already full.');
+            alert('Chat not found.');
           }
         } catch (error) {
           console.error('Error joining chat:', error);

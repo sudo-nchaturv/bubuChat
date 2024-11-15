@@ -192,6 +192,51 @@ app.get('/chat/:code', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/chat.html'));
 });
 
+// Add this new route
+app.post('/api/chat/:code/set-role', async (req, res) => {
+    try {
+        const { code } = req.params;
+        const { role } = req.body;
+
+        const { error } = await supabase
+            .from('chats')
+            .update({ creator_role: role })
+            .eq('code', code);
+
+        if (error) throw error;
+
+        console.log(`Set creator role for chat ${code} to ${role}`);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error setting role:', error);
+        res.status(500).json({ error: 'Failed to set role' });
+    }
+});
+
+// Update the chat info route
+app.get('/api/chat/:code/info', async (req, res) => {
+    try {
+        const { code } = req.params;
+        const { data, error } = await supabase
+            .from('chats')
+            .select('creator_role')
+            .eq('code', code)
+            .single();
+
+        if (error) throw error;
+
+        if (!data || !data.creator_role) {
+            return res.status(404).json({ error: 'Chat not found or role not set' });
+        }
+
+        console.log(`Retrieved creator role for chat ${code}: ${data.creator_role}`);
+        res.json({ creatorRole: data.creator_role });
+    } catch (error) {
+        console.error('Error getting chat info:', error);
+        res.status(500).json({ error: 'Failed to get chat info' });
+    }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
