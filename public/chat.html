@@ -144,9 +144,6 @@
     // Initial load of messages
     loadMessages();
 
-    // Poll for new messages every 2 seconds
-    setInterval(loadMessages, 2000);
-
     // Add enter key support for message input
     messageInput.addEventListener('keypress', function(e) {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -154,6 +151,29 @@
         sendMessage(e);
       }
     });
+
+    // Replace the polling mechanism with Supabase real-time subscription
+    const supabase = createClient(
+      'https://wepsekkormbvsjahimtq.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlcHNla2tvcm1idnNqYWhpbXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE2ODU5MDQsImV4cCI6MjA0NzI2MTkwNH0.dk3YjcUkYmcoGc1kBBvhWujtlb-1E4xRGn6Qtb5G_EA'
+    );
+
+    // Subscribe to new messages
+    supabase
+      .channel('messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_code=eq.${chatCode}`
+        },
+        () => {
+          loadMessages();
+        }
+      )
+      .subscribe();
   </script>
 </body>
 </html>

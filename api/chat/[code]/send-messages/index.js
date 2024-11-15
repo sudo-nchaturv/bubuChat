@@ -1,5 +1,6 @@
-export default function handler(req, res) {
-  // Enable CORS
+import { supabase } from '../../../../lib/supabase';
+
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -8,7 +9,6 @@ export default function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Handle OPTIONS request
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -20,35 +20,47 @@ export default function handler(req, res) {
 
   try {
     const { code } = req.query;
-    const { user, message } = req.body;
+    const { user: user_role, message } = req.body;
 
-    // Initialize global chats if it doesn't exist
-    if (typeof global.chats === 'undefined') {
-      global.chats = {};
+    // Check message length
+    if (!message || message.length > 200) {
+      return res.status(400).json({ error: 'Invalid message length' });
     }
 
-    const chat = global.chats[code];
+    // Check if chat exists and hasn't expired
+    const { data: chat, error: chatError } = await supabase
+      .from('chats')
+      .select('*')
+      .eq('code', code)
+      .single();
 
-    if (!chat) {
-      console.log('Chat not found:', code); // Debug log
+    if (chatError || !chat) {
       return res.status(404).json({ error: 'Chat not found' });
     }
 
-    const userMessages = chat.messages.filter(msg => msg.user === user);
+    // Check message limit
+    const { data: messageCount, error: countError } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact' })
+      .eq('chat_code', code)
+      .eq('user_role', user_role);
 
-    if (userMessages.length >= 5) {
+    if (countError) throw countError;
+
+    if (messageCount.length >= 5) {
       return res.status(403).json({ error: 'Message limit reached' });
     }
 
-    if (!message || message.length > 200) {
-      return res.status(400).json({ error: 'Invalid message' });
-    }
+    // Insert message
+    const { error: insertError } = await supabase
+      .from('messages')
+      .insert([{ chat_code: code, user_role, message }]);
 
-    chat.messages.push({ user, message });
-    console.log('Message added to chat:', code); // Debug log
+    if (insertError) throw insertError;
+
     res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Error sending message:', error); // Debug log
+    console.error('Error:', error);
     res.status(500).json({ error: 'Failed to send message' });
   }
 }
