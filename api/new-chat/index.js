@@ -1,11 +1,10 @@
-const chats = {};
+import { supabase } from '../../lib/supabase';
 
 function generateCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-export default function handler(req, res) {
-  // Enable CORS
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -14,7 +13,6 @@ export default function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Handle OPTIONS request
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -26,20 +24,16 @@ export default function handler(req, res) {
 
   try {
     const code = generateCode();
-    if (typeof global.chats === 'undefined') {
-      global.chats = {};
-    }
     
-    global.chats[code] = { 
-      messages: [], 
-      createdAt: Date.now(),
-      creatorRole: null
-    };
+    const { error } = await supabase
+      .from('chats')
+      .insert([{ code }]);
 
-    console.log('Created new chat with code:', code); // Debug log
+    if (error) throw error;
+
     res.status(200).json({ code });
   } catch (error) {
-    console.error('Error creating chat:', error); // Debug log
+    console.error('Error:', error);
     res.status(500).json({ error: 'Failed to create chat' });
   }
 }

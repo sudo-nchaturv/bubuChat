@@ -1,5 +1,6 @@
-export default function handler(req, res) {
-  // Enable CORS
+import { supabase } from '../../../../lib/supabase';
+
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -8,7 +9,6 @@ export default function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Handle OPTIONS request
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -20,23 +20,30 @@ export default function handler(req, res) {
 
   try {
     const { code } = req.query;
-    
-    // Initialize global chats if it doesn't exist
-    if (typeof global.chats === 'undefined') {
-      global.chats = {};
+
+    // First check if chat exists and hasn't expired
+    const { data: chat, error: chatError } = await supabase
+      .from('chats')
+      .select('*')
+      .eq('code', code)
+      .single();
+
+    if (chatError || !chat) {
+      return res.status(404).json({ error: 'Chat not found' });
     }
 
-    const chat = global.chats[code];
+    // Get messages for this chat
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_code', code)
+      .order('created_at', { ascending: true });
 
-    if (chat) {
-      console.log('Returning messages for chat:', code); // Debug log
-      res.status(200).json({ messages: chat.messages });
-    } else {
-      console.log('Chat not found:', code); // Debug log
-      res.status(404).json({ error: 'Chat not found' });
-    }
+    if (messagesError) throw messagesError;
+
+    res.status(200).json({ messages });
   } catch (error) {
-    console.error('Error getting messages:', error); // Debug log
+    console.error('Error:', error);
     res.status(500).json({ error: 'Failed to get messages' });
   }
 }

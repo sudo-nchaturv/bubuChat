@@ -1,31 +1,8 @@
 {
     "version": 2,
-    "builds": [
-      {
-        "src": "api/**/*.js",
-        "use": "@vercel/node"
-      },
-      {
-        "src": "public/**",
-        "use": "@vercel/static"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/api/(.*)",
-        "dest": "/api/$1"
-      },
-      {
-        "src": "/chat/(.*)",
-        "dest": "/public/chat.html"
-      },
-      {
-        "src": "/",
-        "dest": "/public/home.html"
-      },
-      {
-        "src": "/(.*)",
-        "dest": "/public/$1"
-      }
+    "rewrites": [
+      { "source": "/api/(.*)", "destination": "/api/$1" },
+      { "source": "/", "destination": "/public/home.html" },
+      { "source": "/chat/(.*)", "destination": "/public/chat.html" }
     ]
   }
