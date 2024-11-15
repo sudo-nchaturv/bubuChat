@@ -11,187 +11,133 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Initialize Supabase with error handling
+// Initialize Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing Supabase environment variables');
+    console.error('Missing Supabase credentials');
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Generate unique code
 function generateCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-// Create new chat
+// Routes
 app.post('/api/new-chat', async (req, res) => {
-  try {
-    console.log('Creating new chat...'); // Debug log
-    
-    // Check if Supabase is properly initialized
-    if (!supabase) {
-      throw new Error('Supabase client not initialized');
+    try {
+        console.log('Creating new chat...');
+        const code = generateCode();
+        
+        const { error } = await supabase
+            .from('chats')
+            .insert([{
+                code: code,
+                created_at: new Date().toISOString(),
+                expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
+            }]);
+
+        if (error) {
+            console.error('Supabase error:', error);
+            throw error;
+        }
+
+        console.log('Chat created with code:', code);
+        res.json({ code });
+    } catch (error) {
+        console.error('Error creating chat:', error);
+        res.status(500).json({ error: 'Failed to create chat' });
     }
+});
 
-    // Generate a unique code
-    const code = generateCode();
-    console.log('Generated code:', code);
-
-    // Create the chat record
-    const { data, error } = await supabase
-      .from('chats')
-      .insert({
-        code: code,
-        creator_role: null,
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + (48 * 60 * 60 * 1000)).toISOString()
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Supabase error:', error);
-      throw new Error(error.message);
-    }
-
-    console.log('Chat created successfully:', data);
-    res.status(200).json({ code: code });
-  } catch (error) {
-    console.error('Error in /api/new-chat:', error);
-    res.status(500).json({
-      error: 'Failed to create chat',
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-}); 
-
-// Get chat info
 app.get('/api/chat/:code/info', async (req, res) => {
-  try {
-    const { code } = req.params;
-    
-    const { data: chat, error } = await supabase
-      .from('chats')
-      .select('*')
-      .eq('code', code)
-      .single();
+    try {
+        const { code } = req.params;
+        const { data, error } = await supabase
+            .from('chats')
+            .select('creator_role')
+            .eq('code', code)
+            .single();
 
-    if (error) throw error;
-    
-    if (chat) {
-      res.json({ creatorRole: chat.creator_role });
-    } else {
-      res.status(404).json({ error: 'Chat not found' });
+        if (error) throw error;
+        res.json({ creatorRole: data?.creator_role });
+    } catch (error) {
+        console.error('Error getting chat info:', error);
+        res.status(500).json({ error: 'Failed to get chat info' });
     }
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to get chat info' });
-  }
 });
 
-// Get messages
 app.get('/api/chat/:code/messages', async (req, res) => {
-  try {
-    const { code } = req.params;
+    try {
+        const { code } = req.params;
+        const { data, error } = await supabase
+            .from('messages')
+            .select('user_role,message,created_at')
+            .eq('chat_code', code)
+            .order('created_at', { ascending: true });
 
-    const { data: chat, error: chatError } = await supabase
-      .from('chats')
-      .select('*')
-      .eq('code', code)
-      .single();
-
-    if (chatError || !chat) {
-      return res.status(404).json({ error: 'Chat not found' });
+        if (error) throw error;
+        res.json({ messages: data.map(m => ({
+            user: m.user_role,
+            message: m.message
+        })) });
+    } catch (error) {
+        console.error('Error getting messages:', error);
+        res.status(500).json({ error: 'Failed to get messages' });
     }
-
-    const { data: messages, error: messagesError } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('chat_code', code)
-      .order('created_at', { ascending: true });
-
-    if (messagesError) throw messagesError;
-
-    res.json({ messages: messages.map(m => ({
-      user: m.user_role,
-      message: m.message
-    })) });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to get messages' });
-  }
 });
 
-// Send message
 app.post('/api/chat/:code/send-message', async (req, res) => {
-  try {
-    const { code } = req.params;
-    const { user, message } = req.body;
+    try {
+        const { code } = req.params;
+        const { user, message } = req.body;
 
-    if (!message || message.length > 200) {
-      return res.status(400).json({ error: 'Invalid message length' });
+        if (!message || message.length > 200) {
+            return res.status(400).json({ error: 'Invalid message' });
+        }
+
+        const { data: messages } = await supabase
+            .from('messages')
+            .select('id')
+            .eq('chat_code', code)
+            .eq('user_role', user);
+
+        if (messages && messages.length >= 5) {
+            return res.status(403).json({ error: 'Message limit reached' });
+        }
+
+        const { error } = await supabase
+            .from('messages')
+            .insert([{
+                chat_code: code,
+                user_role: user,
+                message: message
+            }]);
+
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        res.status(500).json({ error: 'Failed to send message' });
     }
-
-    const { data: chat, error: chatError } = await supabase
-      .from('chats')
-      .select('*')
-      .eq('code', code)
-      .single();
-
-    if (chatError || !chat) {
-      return res.status(404).json({ error: 'Chat not found' });
-    }
-
-    const { data: messageCount, error: countError } = await supabase
-      .from('messages')
-      .select('id', { count: 'exact' })
-      .eq('chat_code', code)
-      .eq('user_role', user);
-
-    if (countError) throw countError;
-
-    if (messageCount.length >= 5) {
-      return res.status(403).json({ error: 'Message limit reached' });
-    }
-
-    const { error: insertError } = await supabase
-      .from('messages')
-      .insert([{ 
-        chat_code: code, 
-        user_role: user, 
-        message 
-      }]);
-
-    if (insertError) throw insertError;
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to send message' });
-  }
 });
 
 // Serve static files
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/home.html'));
+    res.sendFile(path.join(__dirname, '../public/home.html'));
 });
 
 app.get('/chat/:code', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/chat.html'));
+    res.sendFile(path.join(__dirname, '../public/chat.html'));
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ 
-    error: 'Internal server error',
-    details: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Export the express app
 module.exports = app;
