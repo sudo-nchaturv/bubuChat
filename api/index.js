@@ -30,26 +30,51 @@ function generateCode() {
 app.post('/api/new-chat', async (req, res) => {
     try {
         console.log('Creating new chat...');
-        const code = generateCode();
+        console.log('Supabase URL:', supabaseUrl);
+        console.log('Supabase key exists:', !!supabaseKey);
         
-        const { error } = await supabase
+        if (!supabase) {
+            throw new Error('Supabase client not initialized');
+        }
+
+        const code = generateCode();
+        console.log('Generated code:', code);
+
+        // Test the chats table exists
+        const { data: testData, error: testError } = await supabase
+            .from('chats')
+            .select('code')
+            .limit(1);
+            
+        if (testError) {
+            console.error('Error testing chats table:', testError);
+            throw new Error('Failed to access chats table');
+        }
+
+        // Insert new chat
+        const { data, error } = await supabase
             .from('chats')
             .insert([{
                 code: code,
                 created_at: new Date().toISOString(),
                 expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
-            }]);
+            }])
+            .select();
 
         if (error) {
-            console.error('Supabase error:', error);
+            console.error('Error inserting chat:', error);
             throw error;
         }
 
-        console.log('Chat created with code:', code);
+        console.log('Chat created successfully:', code);
         res.json({ code });
     } catch (error) {
-        console.error('Error creating chat:', error);
-        res.status(500).json({ error: 'Failed to create chat' });
+        console.error('Error in /api/new-chat:', error);
+        res.status(500).json({ 
+            error: 'Failed to create chat',
+            message: error.message,
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
@@ -122,6 +147,27 @@ app.post('/api/chat/:code/send-message', async (req, res) => {
     } catch (error) {
         console.error('Error sending message:', error);
         res.status(500).json({ error: 'Failed to send message' });
+    }
+});
+
+// Add this debug route to test Supabase connection
+app.get('/api/test-connection', async (req, res) => {
+    try {
+        console.log('Testing Supabase connection...');
+        console.log('Supabase URL:', supabaseUrl);
+        console.log('Supabase key exists:', !!supabaseKey);
+        
+        const { data, error } = await supabase
+            .from('chats')
+            .select('code')
+            .limit(1);
+            
+        if (error) throw error;
+        
+        res.json({ success: true, message: 'Connection successful' });
+    } catch (error) {
+        console.error('Connection test failed:', error);
+        res.status(500).json({ error: 'Connection test failed', details: error.message });
     }
 });
 
