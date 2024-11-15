@@ -51,6 +51,7 @@
       cursor: not-allowed;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <h1>Chat Room</h1>
@@ -69,76 +70,102 @@
     const messageInput = document.getElementById('messageInput');
     let remainingMessages = 5;
 
-    // Redirect if no role or invalid role
-    if (!role || !['Bubu', 'Dudu'].includes(role)) {
-      window.location.href = '/';
-    }
+    // Initialize Supabase
+    const supabase = supabase.createClient(
+        'YOUR_SUPABASE_URL',
+        'YOUR_SUPABASE_ANON_KEY' // Use the anon key here, not service key
+    );
 
-    // Display role
+    // Display role and add copy button
     document.getElementById('roleDisplay').textContent = role;
-    document.getElementById('roleDisplay').className = role;
+    const copyButton = document.createElement('button');
+    copyButton.textContent = 'Copy Chat Code';
+    copyButton.className = 'button secondary';
+    copyButton.onclick = () => {
+        navigator.clipboard.writeText(chatCode)
+            .then(() => alert('Chat code copied!'))
+            .catch(err => console.error('Failed to copy:', err));
+    };
+    document.getElementById('roleDisplay').parentNode.appendChild(copyButton);
 
     async function loadMessages() {
-      try {
-        const response = await fetch(`/api/chat/${chatCode}/messages`);
-        if (!response.ok) {
-          throw new Error('Failed to load messages');
+        try {
+            const response = await fetch(`/api/chat/${chatCode}/messages`);
+            if (!response.ok) throw new Error('Failed to load messages');
+            
+            const data = await response.json();
+            const chatBox = document.getElementById('chatBox');
+            chatBox.innerHTML = data.messages
+                .map(msg => `<div class="${msg.user}">${msg.user}: ${msg.message}</div>`)
+                .join('');
+            
+            // Auto scroll to bottom
+            chatBox.scrollTop = chatBox.scrollHeight;
+            
+            // Update remaining messages
+            const myMessages = data.messages.filter(msg => msg.user === role);
+            remainingMessages = 5 - myMessages.length;
+            
+            if (remainingMessages <= 0) {
+                disableChat();
+            }
+        } catch (error) {
+            console.error('Error loading messages:', error);
         }
-        const data = await response.json();
-        const chatBox = document.getElementById('chatBox');
-        chatBox.innerHTML = data.messages.map(msg => 
-          `<p><strong class="${msg.user}">${msg.user}:</strong> ${msg.message}</p>`
-        ).join('');
-        chatBox.scrollTop = chatBox.scrollHeight;
-
-        // Update remaining messages count
-        const myMessages = data.messages.filter(msg => msg.user === role);
-        remainingMessages = Math.max(0, 5 - myMessages.length);
-        document.getElementById('remainingMessages').textContent = remainingMessages;
-
-        if (remainingMessages === 0) {
-          disableChat();
-        }
-      } catch (error) {
-        console.error('Error loading messages:', error);
-      }
     }
 
-    async function sendMessage(event) {
-      event.preventDefault();
-      const message = messageInput.value.trim();
-      
-      if (message && remainingMessages > 0) {
-        try {
-          const response = await fetch(`/api/chat/${chatCode}/send-message`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
+    // Subscribe to real-time updates
+    supabase
+        .channel('messages')
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `chat_code=eq.${chatCode}`
             },
-            body: JSON.stringify({
-              user: role,
-              message: message
-            })
-          });
+            () => {
+                loadMessages();
+            }
+        )
+        .subscribe();
 
-          if (!response.ok) {
-            throw new Error('Failed to send message');
-          }
+    async function sendMessage(event) {
+        event.preventDefault();
+        const message = messageInput.value.trim();
+        
+        if (message && remainingMessages > 0) {
+            try {
+                const response = await fetch(`/api/chat/${chatCode}/send-message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user: role,
+                        message: message
+                    })
+                });
 
-          messageInput.value = '';
-          await loadMessages();
-        } catch (error) {
-          console.error('Error sending message:', error);
-          alert('Failed to send message. Please try again.');
+                if (!response.ok) {
+                    throw new Error('Failed to send message');
+                }
+
+                messageInput.value = '';
+                await loadMessages();
+            } catch (error) {
+                console.error('Error sending message:', error);
+                alert('Failed to send message. Please try again.');
+            }
         }
-      }
     }
 
     function disableChat() {
-      messageInput.disabled = true;
-      messageInput.placeholder = "You've reached your message limit";
-      document.querySelector('button[type="submit"]').disabled = true;
-      document.querySelector('button[type="submit"]').classList.add('disabled');
+        messageInput.disabled = true;
+        messageInput.placeholder = "You've reached your message limit";
+        document.querySelector('button[type="submit"]').disabled = true;
+        document.querySelector('button[type="submit"]').classList.add('disabled');
     }
 
     // Initial load of messages
@@ -146,34 +173,11 @@
 
     // Add enter key support for message input
     messageInput.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage(e);
-      }
-    });
-
-    // Replace the polling mechanism with Supabase real-time subscription
-    const supabase = createClient(
-      'https://wepsekkormbvsjahimtq.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlcHNla2tvcm1idnNqYWhpbXRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE2ODU5MDQsImV4cCI6MjA0NzI2MTkwNH0.dk3YjcUkYmcoGc1kBBvhWujtlb-1E4xRGn6Qtb5G_EA'
-    );
-
-    // Subscribe to new messages
-    supabase
-      .channel('messages')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_code=eq.${chatCode}`
-        },
-        () => {
-          loadMessages();
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage(e);
         }
-      )
-      .subscribe();
+    });
   </script>
 </body>
 </html>

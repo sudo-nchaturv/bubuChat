@@ -88,6 +88,18 @@ app.get('/api/chat/:code/info', async (req, res) => {
             .single();
 
         if (error) throw error;
+        
+        if (data && !data.creator_role) {
+            // If no creator role is set, set it to the first role that accesses the chat
+            const role = req.query.role;
+            if (role) {
+                await supabase
+                    .from('chats')
+                    .update({ creator_role: role })
+                    .eq('code', code);
+            }
+        }
+
         res.json({ creatorRole: data?.creator_role });
     } catch (error) {
         console.error('Error getting chat info:', error);

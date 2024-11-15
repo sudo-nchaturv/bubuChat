@@ -63,7 +63,8 @@
 
     function startChat(role) {
       const code = document.getElementById('chatCode').textContent;
-      window.location.href = `/chat/${code}?role=${role}`;
+      const actualRole = role === 'Dudu' ? 'Bubu' : 'Dudu';
+      window.location.href = `/chat/${code}?role=${actualRole}`;
     }
 
     async function joinChat() {
