@@ -11,9 +11,14 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Initialize Supabase
+// Initialize Supabase with error handling
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase environment variables');
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Generate unique code
@@ -24,18 +29,36 @@ function generateCode() {
 // Create new chat
 app.post('/api/new-chat', async (req, res) => {
   try {
+    console.log('Creating new chat...'); // Debug log
     const code = generateCode();
     
-    const { error } = await supabase
+    console.log('Generated code:', code); // Debug log
+    console.log('Supabase URL:', supabaseUrl); // Debug log (will be hidden in logs)
+    console.log('Supabase key exists:', !!supabaseKey); // Debug log (safe way to check key)
+
+    const { data, error } = await supabase
       .from('chats')
-      .insert([{ code }]);
+      .insert([{ 
+        code,
+        created_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString() // 48 hours from now
+      }])
+      .select()
+      .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error); // Debug log
+      throw error;
+    }
 
+    console.log('Chat created successfully:', code); // Debug log
     res.json({ code });
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Failed to create chat' });
+    console.error('Error creating chat:', error); // Debug log
+    res.status(500).json({ 
+      error: 'Failed to create chat',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -152,6 +175,15 @@ app.get('/', (req, res) => {
 
 app.get('/chat/:code', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/chat.html'));
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
 // Export the express app
